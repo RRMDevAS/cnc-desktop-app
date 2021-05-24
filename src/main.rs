@@ -1,40 +1,22 @@
 
-use std::{collections::vec_deque, env::temp_dir, io::prelude::*, net::Shutdown, str::FromStr, str, time::Duration};
+use std::{io::prelude::*, net::Shutdown, time::Duration};
 use std::io;
-use std::net::{TcpStream, SocketAddr, IpAddr};
-use std::sync::{mpsc, Arc};
-use std::ffi::CString;
+use std::net::TcpStream;
+use std::sync::mpsc;
 use cnc_ctrl::{CncCtrl, ECncCtrlMessage, ECncStatusMessage};
 use thread_pool::ThreadPool;
 use raylib::prelude::*;
-use raylib::core;
-use raylib::rgui;
+use cnc_ui::{cnc_connection_ui::{GuiIpAddress, configure_ip}, cnc_ctrl_ui::CncCtrlUi};
 
 mod thread_pool;
 mod cnc_ctrl;
+mod cnc_ui;
 
 enum EAppState {
     eConfigureIpAddress,
     eCncControl,
 }
 
-struct GuiIpAddress {
-    pub m_str_ip        : String,
-    pub ab_ip_buffer    : [u8; 30],
-    pub rect_ip         : Rectangle,
-    pub button_rect     : Rectangle,
-}
-
-impl GuiIpAddress {
-    pub fn new() -> GuiIpAddress {
-        GuiIpAddress{
-            m_str_ip        : String::new(),
-            ab_ip_buffer    : [0u8; 30],
-            rect_ip         : Rectangle::new(100.0f32, 100.0f32, 250.0f32, 50f32),
-            button_rect     : Rectangle::new(150.0f32, 150.0f32, 150.0f32, 30f32),
-        }
-    }
-}
 
 fn main() {
 
@@ -53,25 +35,16 @@ fn main() {
     let font_24 = rl.load_font_ex(&thread, "./data/fonts/iosevka-fixed-regular.ttf",
     24, font_char_set).expect("Failed to load the font");
     rl.gui_set_font(&font_24);
-    // let font = match rl.load_font(&thread, "./data/fonts/Slabo27px-Regular.ttf") {
-    //     Ok(v) => {
-    //         println!("Font has been loaded and succesfully at that!!!!!!!!!!!!!");
-    //         v
-    //     },
-    //     Err(e) => {
-    //         println!("Font has NOT been loaded succesfully!!!!!!!!!!!!!");
-    //         panic!("Failed to load the font: {}", e);
-    //     }
-    // };
 
     let pool = ThreadPool::new(2);
 
     let mut cnc_ctrl: CncCtrl = CncCtrl::new();
+    let mut cnc_ctrl_ui: CncCtrlUi = CncCtrlUi::new();
 
     // let mut e_app_state = EAppState::eConfigureIpAddress;
     let mut e_app_state = EAppState::eCncControl;
 
-    let mut tcp_stream: TcpStream;
+    // let mut tcp_stream: TcpStream;
 
     let mut gui_ip = GuiIpAddress::new();
     
@@ -97,52 +70,14 @@ fn main() {
                 }
             },
             EAppState::eCncControl => {
-                cnc_ctrl.draw_ui(&mut d, &font);
+                cnc_ctrl.update_status();
+                cnc_ctrl_ui.draw(&mut d, &font, &mut cnc_ctrl);
             },
         }
 
     }
 }
 
-fn configure_ip(d: &mut RaylibDrawHandle, font: &Font, gui: &mut GuiIpAddress) -> Option<TcpStream> {
-    if d.gui_text_box(gui.rect_ip, &mut gui.ab_ip_buffer, true) {
-        let str_slice: &str = str::from_utf8( &gui.ab_ip_buffer ).unwrap().trim_end_matches('\0');
-        gui.m_str_ip = String::from(str_slice);
-    }
-
-    if d.gui_button(gui.button_rect, Some(rstr!("CONNECT"))) {
-        let str_input: String = gui.m_str_ip.clone();
-        
-        let mut saddr: Option<SocketAddr> = None;
-        let str_trimmed: &str = str_input.trim();
-        // assert_eq!(str_trimmed, "192.168.43.184:5555");
-        match str_trimmed.parse() {
-        // match SocketAddr::from_str("192.168.43.184:5555") {
-            Ok(sock_addres) => {
-                saddr = Some(sock_addres);
-            },
-            Err(parse_error) => {
-                println!("error parsing the input [{}] with error '{:?}'", str_trimmed, parse_error);
-            },
-        }
-
-        if let Some(address) = saddr {
-            // let mut tcp_stream: TcpStream;
-            println!("Connecting...");
-            match TcpStream::connect_timeout(&address, Duration::from_secs(5)) {
-            // match TcpStream::connect("192.168.43.184:5555") {
-                Ok(stream) => {
-                    return Some(stream);
-                },
-                Err(error) => {
-                    println!("Failed to connect to {:?} with error {:?}", saddr, error);
-                }
-            }
-        }
-    }
-
-    None
-}
 
 fn handle_connection(mut stream: TcpStream, tx: mpsc::Sender<ECncStatusMessage>, rx: mpsc::Receiver<ECncCtrlMessage>) {
     // let mut str_input = String::new();
@@ -231,23 +166,5 @@ fn handle_connection(mut stream: TcpStream, tx: mpsc::Sender<ECncStatusMessage>,
                 }
             },
         }
-        // match io::stdin().read_line(&mut str_input) {
-        //     Ok(lenght) => {
-        //         // str_input.trim();
-        //         match str_input.trim() {
-        //             "quit" => {
-        //                 stream.shutdown(Shutdown::Both).unwrap();
-        //                 x_connected = false;
-        //             },
-        //             _ => {
-        //                 stream.write(str_input.as_bytes()).unwrap();
-        //                 stream.flush().unwrap();
-        //             },
-        //         }
-        //     },
-        //     Err(error) => {
-        //         println!("error reading the input: {:?}", error);
-        //     },
-        // }
     }
 }
