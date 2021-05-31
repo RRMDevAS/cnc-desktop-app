@@ -1,9 +1,7 @@
 
-use std::{io::prelude::*, net::Shutdown, time::Duration};
-use std::io;
-use std::net::TcpStream;
-use std::sync::mpsc;
-use cnc_ctrl::{CncCtrl, ECncCtrlMessage, ECncStatusMessage};
+
+use cnc_connection::{CncConnection, CncConnectionManager};
+use cnc_ctrl::{CncCtrl};
 use thread_pool::ThreadPool;
 use raylib::prelude::*;
 use cnc_ui::{cnc_connection_ui::{GuiIpAddress, configure_ip}, cnc_ctrl_ui::CncCtrlUi};
@@ -11,6 +9,8 @@ use cnc_ui::{cnc_connection_ui::{GuiIpAddress, configure_ip}, cnc_ctrl_ui::CncCt
 mod thread_pool;
 mod cnc_ctrl;
 mod cnc_ui;
+mod cnc_connection;
+mod cnc_msg;
 
 enum EAppState {
     eConfigureIpAddress,
@@ -60,12 +60,12 @@ fn main() {
         match e_app_state {
             EAppState::eConfigureIpAddress => {
                 if let Some(stream) = configure_ip(&mut d, &font, &mut gui_ip) {
-                    let (tx_ctrl, rx_ctrl) = mpsc::channel();
-                    let (tx_status, rx_status) = mpsc::channel();
-                    cnc_ctrl.set_channels(tx_ctrl, rx_status);
-                    pool.execute( || {
-                        handle_connection(stream, tx_status, rx_ctrl);
-                    });
+
+                    let (cnc_ctrl_connection, manager_connection) = CncConnection::new_connected_pair();
+                    cnc_ctrl.set_connection(cnc_ctrl_connection);
+                    let mut connection_manager = CncConnectionManager::new(stream, manager_connection);
+                    pool.execute( move || connection_manager.run() );
+
                     e_app_state = EAppState::eCncControl;
                 }
             },
@@ -75,96 +75,5 @@ fn main() {
             },
         }
 
-    }
-}
-
-
-fn handle_connection(mut stream: TcpStream, tx: mpsc::Sender<ECncStatusMessage>, rx: mpsc::Receiver<ECncCtrlMessage>) {
-    // let mut str_input = String::new();
-    let mut x_connected = true;
-    stream.set_read_timeout( Some(Duration::from_millis(100)) ).unwrap();
-    let mut ab_recv_buffer: [u8; 512] = [0; 512];
-    while x_connected {
-        // println!("enter message to send or 'quit' to quit");
-        // str_input.clear();
-        match rx.try_recv() {
-            Ok(msg) => {
-                let u_type_id = msg.get_type_id();
-                match msg {
-                    ECncCtrlMessage::eTargetPosition(coords) => {
-                        match bincode::serialize(&coords) {
-                            Ok(mut vec) => {
-                                let payload = {
-                                    let mut temp_vec = Vec::from( [u_type_id; 1] );
-                                    temp_vec.append(&mut vec);
-                                    temp_vec
-                                };
-                                match stream.write(payload.as_slice()) {
-                                    Ok(bytes_written) => {
-                                        if bytes_written!=payload.len() {
-                                            println!("Failed to send all bytes: sent {} of {}", bytes_written, vec.len());
-                                        } else {
-                                            println!("Sent {:?}", payload);
-                                        }
-                                        stream.flush().unwrap();
-                                    },
-                                    Err(e) => {
-                                        println!("Error sending: {:?}", e);
-                                    }
-                                }
-                            },
-                            Err(e) => {
-                                println!("Failed to serialize the coords: {:?}", e);
-                            }
-                        }
-                    },
-                    ECncCtrlMessage::eQuit => {
-                        stream.shutdown(Shutdown::Both).unwrap();
-                        x_connected = false;
-                    },
-                }
-            },
-            Err(e) => {
-                if e==mpsc::TryRecvError::Disconnected {
-                    stream.shutdown(Shutdown::Both).unwrap();
-                    x_connected = false;
-                    println!("Stream thread receive error: {:?}", e);
-                }
-            },
-        }
-
-
-        match stream.read( &mut ab_recv_buffer ) {
-            Ok( res ) => {
-                if res>0 {
-                    // println!("Received {} bytes", res);
-                    let status_type = ab_recv_buffer[0];
-                    if status_type==0 {
-                        match bincode::deserialize(&ab_recv_buffer[1..]) {
-                            Ok(res) => {
-                                match tx.send(ECncStatusMessage::eCurrentPosition(res)) {
-                                    Ok( () ) => {
-    
-                                    },
-                                    Err(e) => {
-                                        println!("Error sending a received message {:?}", e);
-                                    },
-                                }
-                            },
-                            Err(e) => {
-                                println!("Error deserializeing {:?}", *e);
-                            },
-                        }
-                    } else {
-                        println!("Unknown status received: {}", status_type);
-                    }
-                }
-            },
-            Err(e) => {
-                if e.kind()!=io::ErrorKind::WouldBlock {
-                    println!("Error receiving {:?}", e);
-                }
-            },
-        }
     }
 }

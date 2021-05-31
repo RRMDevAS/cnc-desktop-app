@@ -3,7 +3,8 @@ use std::str::FromStr;
 use raylib::{ffi::IsMouseButtonDown, math::Rectangle};
 use raylib::prelude::*;
 
-use crate::cnc_ctrl::{CncCoordinates, CncCtrl};
+use crate::cnc_ctrl::{CncCtrl};
+use crate::cnc_msg::{CncCoordinates};
 
 struct CncCoordsDisplay{
     background: Rectangle,
