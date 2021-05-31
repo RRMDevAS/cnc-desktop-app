@@ -41,8 +41,8 @@ fn main() {
     let mut cnc_ctrl: CncCtrl = CncCtrl::new();
     let mut cnc_ctrl_ui: CncCtrlUi = CncCtrlUi::new();
 
-    // let mut e_app_state = EAppState::eConfigureIpAddress;
-    let mut e_app_state = EAppState::eCncControl;
+    let mut e_app_state = EAppState::eConfigureIpAddress;
+    // let mut e_app_state = EAppState::eCncControl;
 
     // let mut tcp_stream: TcpStream;
 
@@ -137,7 +137,7 @@ fn handle_connection(mut stream: TcpStream, tx: mpsc::Sender<ECncStatusMessage>,
         match stream.read( &mut ab_recv_buffer ) {
             Ok( res ) => {
                 if res>0 {
-                    println!("Received {} bytes", res);
+                    // println!("Received {} bytes", res);
                     let status_type = ab_recv_buffer[0];
                     if status_type==0 {
                         match bincode::deserialize(&ab_recv_buffer[1..]) {

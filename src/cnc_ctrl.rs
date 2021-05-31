@@ -81,7 +81,7 @@ impl CncCtrl {
                 Ok( res ) => {
                     match res {
                         ECncStatusMessage::eCurrentPosition( current ) => {
-                            println!("Received coordinates: {:?}", current.clone());
+                            // println!("Received coordinates: {:?}", current.clone());
                             // self.current_coords = current;
                             self.set_current_coords(current.x, current.y, current.z);
                         },
