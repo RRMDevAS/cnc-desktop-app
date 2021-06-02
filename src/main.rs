@@ -2,7 +2,6 @@
 
 use cnc_connection::{CncConnection, CncConnectionManager};
 use cnc_ctrl::{CncCtrl};
-use thread_pool::ThreadPool;
 use raylib::prelude::*;
 use cnc_ui::{cnc_connection_ui::{GuiIpAddress, configure_ip}, cnc_ctrl_ui::CncCtrlUi};
 
@@ -21,7 +20,7 @@ enum EAppState {
 fn main() {
 
     let (mut rl, thread) = raylib::init()
-        .size(1920/3*2, 1080/3*2)
+        .size(1920/6*5, 1080/9*8)
         .title("CNC Control")
         .resizable()
         .build();
@@ -36,10 +35,12 @@ fn main() {
     24, font_char_set).expect("Failed to load the font");
     rl.gui_set_font(&font_24);
 
-    let pool = ThreadPool::new(2);
+    // let pool = ThreadPool::new(2);
 
     let mut cnc_ctrl: CncCtrl = CncCtrl::new();
     let mut cnc_ctrl_ui: CncCtrlUi = CncCtrlUi::new();
+
+    let mut connection_manager = CncConnectionManager::new();
 
     let mut e_app_state = EAppState::eConfigureIpAddress;
     // let mut e_app_state = EAppState::eCncControl;
@@ -61,10 +62,13 @@ fn main() {
             EAppState::eConfigureIpAddress => {
                 if let Some(stream) = configure_ip(&mut d, &font, &mut gui_ip) {
 
-                    let (cnc_ctrl_connection, manager_connection) = CncConnection::new_connected_pair();
-                    cnc_ctrl.set_connection(cnc_ctrl_connection);
-                    let mut connection_manager = CncConnectionManager::new(stream, manager_connection);
-                    pool.execute( move || connection_manager.run() );
+                    // let (cnc_ctrl_connection, manager_connection) = CncConnection::new_connected_pair();
+                    // cnc_ctrl.set_connection(cnc_ctrl_connection);
+                    // let mut connection_manager = CncConnectionManager::new(stream, manager_connection);
+                    // pool.execute( move || connection_manager.run() );
+                    
+                    let connection = connection_manager.run(stream);
+                    cnc_ctrl.set_connection(connection);
 
                     e_app_state = EAppState::eCncControl;
                 }
@@ -76,4 +80,5 @@ fn main() {
         }
 
     }
+    cnc_ctrl.quit();
 }

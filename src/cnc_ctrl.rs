@@ -128,5 +128,17 @@ impl CncCtrl {
     }
     pub fn set_connection(&mut self, connection: CncConnection<ECncCtrlMessage, ECncStatusMessage>) {
         self.connection = connection;
+        self.e_cnc_ctrl_state = ECncCtrlState::eConnected;
+    }
+    pub fn quit(&mut self) {
+        match self.connection.send(ECncCtrlMessage::eQuit) {
+            Ok( () ) => {
+
+            },
+            Err(e) => {
+                println!("Cant send quit message: {}", e);
+            }
+        }
+        self.e_cnc_ctrl_state = ECncCtrlState::eOffline;
     }
 }

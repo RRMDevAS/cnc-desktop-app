@@ -3,8 +3,9 @@ use std::sync::mpsc::{self, TryRecvError};
 use std::net::TcpStream;
 use std::{io::prelude::*, net::Shutdown, time::Duration};
 use std::io;
+use crate::thread_pool::ThreadPool;
 
-use crate::cnc_msg::{CncCoordinates, ECncCtrlMessage, ECncStatusMessage};
+use crate::cnc_msg::{ECncCtrlMessage, ECncStatusMessage};
 
 pub trait Message {
 
@@ -71,79 +72,73 @@ impl<T, U> CncConnection<T, U> {
 }
 
 pub struct CncConnectionManager {
-    stream: TcpStream,
-    cnc : CncConnection<ECncStatusMessage, ECncCtrlMessage>,
-    running : bool,
+    pool:   ThreadPool,
 }
 
 impl CncConnectionManager {
-    pub fn new(stream: TcpStream, connection: CncConnection<ECncStatusMessage, ECncCtrlMessage>) -> Self {
+    pub fn new() -> Self {
         CncConnectionManager{
-            stream,
-            cnc : connection,
-            running : false,
+            pool    : ThreadPool::new(2),
         }
     }
 
-    fn send_msg_tcp(&mut self, msg: ECncCtrlMessage) {
-        let u_type_id = msg.get_type_id();
-        match msg {
-            ECncCtrlMessage::eTargetPosition(coords) => {
-                match bincode::serialize(&coords) {
-                    Ok(mut vec) => {
-                        let payload = {
-                            let mut temp_vec = Vec::from( [u_type_id; 1] );
-                            temp_vec.append(&mut vec);
-                            temp_vec
-                        };
-                        match self.stream.write(payload.as_slice()) {
-                            Ok(bytes_written) => {
-                                if bytes_written!=payload.len() {
-                                    println!("Failed to send all bytes: sent {} of {}", bytes_written, vec.len());
-                                } else {
-                                    println!("Sent {:?}", payload);
-                                }
-                                self.stream.flush().unwrap();
-                            },
-                            Err(e) => {
-                                println!("Error sending: {:?}", e);
-                            }
+    pub fn run(&mut self, stream: TcpStream) -> CncConnection<ECncCtrlMessage, ECncStatusMessage> {
+        let (other_end, own_end) = CncConnection::new_connected_pair();
+        self.pool.execute( move || {
+            CncConnectionManager::run_tcp(stream, own_end);
+        });
+
+        other_end
+    }
+
+    fn send_msg_tcp(stream: &mut TcpStream, msg: ECncCtrlMessage) {
+        match msg.bin_serialize() {
+            Ok(payload) => {
+                match stream.write(payload.as_slice()) {
+                    Ok(bytes_written) => {
+                        if bytes_written!=payload.len() {
+                            println!("Failed to send all bytes: sent {} of {}", bytes_written, payload.len());
+                        } else {
+                            println!("Sent {:?}", payload);
                         }
+                        stream.flush().unwrap();
                     },
                     Err(e) => {
-                        println!("Failed to serialize the coords: {:?}", e);
+                        println!("Error sending: {:?}", e);
                     }
                 }
             },
-            ECncCtrlMessage::eQuit => {
-                self.stream.shutdown(Shutdown::Both).unwrap();
-                self.running = false;
-            },
+            Err(e) => {
+                println!("Failed to serialize the message: {:?}", e);
+            }
         }
     }
 
-    pub fn run(&mut self) {
-        self.running = true;
-        self.stream.set_read_timeout( Some(Duration::from_millis(100)) ).unwrap();
+    fn run_tcp(mut stream: TcpStream, cnc: CncConnection<ECncStatusMessage, ECncCtrlMessage>) {
+        let mut running = true;
+        stream.set_read_timeout( Some(Duration::from_millis(100)) ).unwrap();
         let mut ab_recv_buffer: [u8; 512] = [0; 512];
-        while self.running {
-            match self.cnc.receive() {
+        while running {
+            match cnc.receive() {
+                Ok(Some(ECncCtrlMessage::eQuit)) => {
+                    stream.shutdown(Shutdown::Both).unwrap();
+                    running = false;
+                },
                 Ok(msg) => {
                     if let Some(msg) = msg {
-                        self.send_msg_tcp(msg);
+                        CncConnectionManager::send_msg_tcp(&mut stream, msg);
+                        // CncConnectionManager::send_msg_tcp(&mut stream, msg);
                     }
                 },
                 Err(e) => {
                     if e==mpsc::TryRecvError::Disconnected {
                         println!("Failed to receive: {:?}", e);
-                        self.running = false;
-                    }
+                        running = false;
+                    } 
                 },
             }
-            // if let Some(msg) = self.cnc.receive() {
-            // }
     
-            match self.stream.read( &mut ab_recv_buffer ) {
+            match stream.read( &mut ab_recv_buffer ) {
                 Ok( res ) => {
                     if res>0 {
                         // println!("Received {} bytes", res);
@@ -151,7 +146,7 @@ impl CncConnectionManager {
                         if status_type==0 {
                             match bincode::deserialize(&ab_recv_buffer[1..]) {
                                 Ok(res) => {
-                                    match self.cnc.send(ECncStatusMessage::eCurrentPosition(res)) {
+                                    match cnc.send(ECncStatusMessage::eCurrentPosition(res)) {
                                         Ok( () ) => {
         
                                         },

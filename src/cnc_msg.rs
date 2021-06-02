@@ -1,6 +1,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use std::error::Error;
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CncCoordinates{
     pub x: f32,
@@ -28,6 +30,27 @@ impl ECncCtrlMessage {
         match self {
             ECncCtrlMessage::eTargetPosition(coords) => 0,
             ECncCtrlMessage::eQuit => 1,
+        }
+    }
+
+    pub fn bin_serialize(&self) -> Result<Vec<u8>, Box<dyn Error>> {
+        let u_type_id = self.get_type_id();
+        match self {
+            ECncCtrlMessage::eTargetPosition(coords) => {
+                match bincode::serialize(&coords) {
+                    Ok(mut vec) => {
+                        let mut temp_vec = Vec::from( [u_type_id; 1] );
+                        temp_vec.append(&mut vec);
+                        Ok(temp_vec)
+                    },
+                    Err(e) => {
+                        Err(e)
+                    },
+                }
+            },
+            ECncCtrlMessage::eQuit => {
+                Ok(Vec::new())
+            },
         }
     }
 }
