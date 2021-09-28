@@ -7,8 +7,8 @@ use crate::cnc_msg::{CncCoordinates, ECncCtrlMessage, ECncStatusMessage};
 use crate::cnc_connection::CncConnection;
 
 enum ECncCtrlState {
-    eOffline,
-    eConnected,
+    EOffline,
+    EConnected,
 }
 
 
@@ -25,7 +25,7 @@ pub struct CncCtrl
 impl CncCtrl {
     pub fn new() -> CncCtrl {
         CncCtrl{
-            e_cnc_ctrl_state: ECncCtrlState::eOffline,
+            e_cnc_ctrl_state: ECncCtrlState::EOffline,
             target_coords   : CncCoordinates::new(),
             current_coords  : CncCoordinates::new(),
             // o_tx            : None,
@@ -39,16 +39,16 @@ impl CncCtrl {
             Ok(msg) => {
                 if let Some(status) = msg {
                     match status {
-                        ECncStatusMessage::eCurrentPosition( current ) => {
+                        ECncStatusMessage::ECurrentPosition( current ) => {
                             // println!("Received coordinates: {:?}", current.clone());
                             // self.current_coords = current;
                             self.set_current_coords(current.x, current.y, current.z);
                         },
-                        ECncStatusMessage::eDisconnected => {
+                        ECncStatusMessage::EDisconnected => {
         
                         },
-                        ECncStatusMessage::eStatus => {
-        
+                        ECncStatusMessage::EStatus(status) => {
+                            
                         },
                     }
                 }
@@ -94,7 +94,7 @@ impl CncCtrl {
     pub fn set_target_coords(&mut self, target_pos: CncCoordinates) {
         self.target_coords = target_pos;
 
-        match self.connection.send(ECncCtrlMessage::eTargetPosition(self.target_coords.clone())) {
+        match self.connection.send(ECncCtrlMessage::ETargetPosition(self.target_coords.clone())) {
             Ok( () ) => {
                 println!("Message sent");
             }, 
@@ -124,14 +124,14 @@ impl CncCtrl {
     pub fn set_channels(&mut self, tx: mpsc::Sender<ECncCtrlMessage>, rx: mpsc::Receiver<ECncStatusMessage>) {
         // self.o_tx = Some(tx);
         // self.o_rx = Some(rx);
-        self.e_cnc_ctrl_state = ECncCtrlState::eConnected;
+        self.e_cnc_ctrl_state = ECncCtrlState::EConnected;
     }
     pub fn set_connection(&mut self, connection: CncConnection<ECncCtrlMessage, ECncStatusMessage>) {
         self.connection = connection;
-        self.e_cnc_ctrl_state = ECncCtrlState::eConnected;
+        self.e_cnc_ctrl_state = ECncCtrlState::EConnected;
     }
     pub fn quit(&mut self) {
-        match self.connection.send(ECncCtrlMessage::eQuit) {
+        match self.connection.send(ECncCtrlMessage::EQuit) {
             Ok( () ) => {
 
             },
@@ -139,6 +139,6 @@ impl CncCtrl {
                 println!("Cant send quit message: {}", e);
             }
         }
-        self.e_cnc_ctrl_state = ECncCtrlState::eOffline;
+        self.e_cnc_ctrl_state = ECncCtrlState::EOffline;
     }
 }

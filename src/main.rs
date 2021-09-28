@@ -12,8 +12,8 @@ mod cnc_connection;
 mod cnc_msg;
 
 enum EAppState {
-    eConfigureIpAddress,
-    eCncControl,
+    EConfigureIpAddress,
+    ECncControl,
 }
 
 
@@ -42,8 +42,8 @@ fn main() {
 
     let mut connection_manager = CncConnectionManager::new();
 
-    let mut e_app_state = EAppState::eConfigureIpAddress;
-    // let mut e_app_state = EAppState::eCncControl;
+    // let mut e_app_state = EAppState::EConfigureIpAddress;
+    let mut e_app_state = EAppState::ECncControl;
 
     // let mut tcp_stream: TcpStream;
 
@@ -59,7 +59,7 @@ fn main() {
             Vector2::new(12.0f32, 12.0f32), 50.0f32, 0f32, Color::BLACK);
 
         match e_app_state {
-            EAppState::eConfigureIpAddress => {
+            EAppState::EConfigureIpAddress => {
                 if let Some(stream) = configure_ip(&mut d, &font, &mut gui_ip) {
 
                     // let (cnc_ctrl_connection, manager_connection) = CncConnection::new_connected_pair();
@@ -70,10 +70,10 @@ fn main() {
                     let connection = connection_manager.run(stream);
                     cnc_ctrl.set_connection(connection);
 
-                    e_app_state = EAppState::eCncControl;
+                    e_app_state = EAppState::ECncControl;
                 }
             },
-            EAppState::eCncControl => {
+            EAppState::ECncControl => {
                 cnc_ctrl.update_status();
                 cnc_ctrl_ui.draw(&mut d, &font, &mut cnc_ctrl);
             },

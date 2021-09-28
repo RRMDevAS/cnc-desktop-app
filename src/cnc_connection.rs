@@ -120,7 +120,7 @@ impl CncConnectionManager {
         let mut ab_recv_buffer: [u8; 512] = [0; 512];
         while running {
             match cnc.receive() {
-                Ok(Some(ECncCtrlMessage::eQuit)) => {
+                Ok(Some(ECncCtrlMessage::EQuit)) => {
                     stream.shutdown(Shutdown::Both).unwrap();
                     running = false;
                 },
@@ -146,9 +146,25 @@ impl CncConnectionManager {
                         if status_type==0 {
                             match bincode::deserialize(&ab_recv_buffer[1..]) {
                                 Ok(res) => {
-                                    match cnc.send(ECncStatusMessage::eCurrentPosition(res)) {
+                                    match cnc.send(ECncStatusMessage::ECurrentPosition(res)) {
                                         Ok( () ) => {
         
+                                        },
+                                        Err(e) => {
+                                            println!("Error sending a received message {:?}", e);
+                                        },
+                                    }
+                                },
+                                Err(e) => {
+                                    println!("Error deserializeing {:?}", *e);
+                                },
+                            }
+                        } else if status_type==1 {
+                            match bincode::deserialize(&ab_recv_buffer[1..]) {
+                                Ok(res) => {
+                                    match cnc.send(ECncStatusMessage::EStatus(res)) {
+                                        Ok( () ) => {
+
                                         },
                                         Err(e) => {
                                             println!("Error sending a received message {:?}", e);

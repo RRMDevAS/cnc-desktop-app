@@ -5,14 +5,14 @@ use std::thread;
 
 pub struct ThreadPool {
     workers: Vec<Worker>,
-    sender: mpsc::Sender<Message>,
+    sender: mpsc::Sender<EMessage>,
 }
 
 type Job = Box<dyn FnOnce() + Send + 'static>;
 
-enum Message {
-    NewJob(Job),
-    Terminate,
+enum EMessage {
+    ENewJob(Job),
+    ETerminate,
 }
 
 impl ThreadPool {
@@ -45,7 +45,7 @@ impl ThreadPool {
     {
         let job = Box::new(f);
 
-        self.sender.send(Message::NewJob(job)).unwrap();
+        self.sender.send(EMessage::ENewJob(job)).unwrap();
     }
 }
 
@@ -54,7 +54,7 @@ impl Drop for ThreadPool {
         println!("Sending terminate message to all workers.");
 
         for _ in &self.workers {
-            self.sender.send(Message::Terminate).unwrap();
+            self.sender.send(EMessage::ETerminate).unwrap();
         }
 
         println!("Shutting down all workers.");
@@ -75,17 +75,17 @@ struct Worker {
 }
 
 impl Worker {
-    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<Message>>>) -> Worker {
+    fn new(id: usize, receiver: Arc<Mutex<mpsc::Receiver<EMessage>>>) -> Worker {
         let thread = thread::spawn(move || loop {
             let message = receiver.lock().unwrap().recv().unwrap();
 
             match message {
-                Message::NewJob(job) => {
+                EMessage::ENewJob(job) => {
                     println!("Worker {} got a job; executing.", id);
 
                     job();
                 }
-                Message::Terminate => {
+                EMessage::ETerminate => {
                     println!("Worker {} was told to terminate.", id);
 
                     break;
