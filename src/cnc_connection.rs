@@ -5,11 +5,7 @@ use std::{io::prelude::*, net::Shutdown, time::Duration};
 use std::io;
 use crate::thread_pool::ThreadPool;
 
-use crate::cnc_msg::{ECncCtrlMessage, ECncStatusMessage};
-
-pub trait Message {
-
-}
+use crate::cnc_msg::{ECncCtrlMessage, ECncStatusMessage, CncCoordinates, CncStatus, PIDParams};
 
 pub struct CncConnection<T, U> {
     o_tx            : Option<mpsc::Sender<T>>,
@@ -65,7 +61,7 @@ impl<T, U> CncConnection<T, U> {
                 },
             }
         } else {
-            println!("Can't receive: Connection not set up!");
+            // println!("Can't receive: Connection not set up!");
             Ok(None)
         }
     }
@@ -144,11 +140,12 @@ impl CncConnectionManager {
                         // println!("Received {} bytes", res);
                         let status_type = ab_recv_buffer[0];
                         if status_type==0 {
-                            match bincode::deserialize(&ab_recv_buffer[1..]) {
+                            match bincode::deserialize::<CncCoordinates>(&ab_recv_buffer[1..]) {
                                 Ok(res) => {
+                                    let temp_coords = res.clone();
                                     match cnc.send(ECncStatusMessage::ECurrentPosition(res)) {
                                         Ok( () ) => {
-        
+                                            println!("Received coordinates: {:?}", temp_coords);
                                         },
                                         Err(e) => {
                                             println!("Error sending a received message {:?}", e);
@@ -160,11 +157,29 @@ impl CncConnectionManager {
                                 },
                             }
                         } else if status_type==1 {
-                            match bincode::deserialize(&ab_recv_buffer[1..]) {
+                            match bincode::deserialize::<CncStatus>(&ab_recv_buffer[1..]) {
                                 Ok(res) => {
+                                    let temp_status = res.clone();
                                     match cnc.send(ECncStatusMessage::EStatus(res)) {
                                         Ok( () ) => {
-
+                                            println!("Received status: {:?}", temp_status);
+                                        },
+                                        Err(e) => {
+                                            println!("Error sending a received message {:?}", e);
+                                        },
+                                    }
+                                },
+                                Err(e) => {
+                                    println!("Error deserializeing {:?}", *e);
+                                },
+                            }
+                        } else if status_type==2 {
+                            match bincode::deserialize::<[PIDParams; 3]>(&ab_recv_buffer[1..]) {
+                                Ok(res) => {
+                                    let temp = res.clone();
+                                    match cnc.send(ECncStatusMessage::EPIDParams(res)) {
+                                        Ok( () ) => {
+                                            println!("Received PID params: {:?}", temp);
                                         },
                                         Err(e) => {
                                             println!("Error sending a received message {:?}", e);

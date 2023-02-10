@@ -1,9 +1,7 @@
 
-use std::{str};
 use std::sync::mpsc;
-use serde::{Deserialize, Serialize};
 
-use crate::cnc_msg::{CncCoordinates, ECncCtrlMessage, ECncStatusMessage};
+use crate::cnc_msg::{CncCoordinates, ECncCtrlMessage, ECncStatusMessage, PIDParams};
 use crate::cnc_connection::CncConnection;
 
 enum ECncCtrlState {
@@ -14,12 +12,11 @@ enum ECncCtrlState {
 
 pub struct CncCtrl
 {
-    e_cnc_ctrl_state: ECncCtrlState,
+    e_cnc_ctrl_state    : ECncCtrlState,
     pub target_coords   : CncCoordinates,
     pub current_coords  : CncCoordinates,
-    // o_tx            : Option<mpsc::Sender<ECncCtrlMessage>>,
-    // o_rx            : Option<mpsc::Receiver<ECncStatusMessage>>,
-    connection      : CncConnection<ECncCtrlMessage, ECncStatusMessage>
+    pub pid_params      : [PIDParams; 3],
+    connection          : CncConnection<ECncCtrlMessage, ECncStatusMessage>
 }
 
 impl CncCtrl {
@@ -28,8 +25,7 @@ impl CncCtrl {
             e_cnc_ctrl_state: ECncCtrlState::EOffline,
             target_coords   : CncCoordinates::new(),
             current_coords  : CncCoordinates::new(),
-            // o_tx            : None,
-            // o_rx            : None,
+            pid_params      : [PIDParams::new(), PIDParams::new(), PIDParams::new()],
             connection      : CncConnection::new(),
         }
     }
@@ -40,15 +36,18 @@ impl CncCtrl {
                 if let Some(status) = msg {
                     match status {
                         ECncStatusMessage::ECurrentPosition( current ) => {
-                            // println!("Received coordinates: {:?}", current.clone());
+                            println!("Received coordinates: {:?}", current.clone());
                             // self.current_coords = current;
                             self.set_current_coords(current.x, current.y, current.z);
                         },
+                        ECncStatusMessage::EStatus(status) => {
+                            self.set_current_coords(status.axis_status[0].position, status.axis_status[1].position, status.axis_status[2].position);
+                        },
+                        ECncStatusMessage::EPIDParams(params) => {
+                            self.update_pid_params(params);    
+                        },
                         ECncStatusMessage::EDisconnected => {
         
-                        },
-                        ECncStatusMessage::EStatus(status) => {
-                            
                         },
                     }
                 }
@@ -59,30 +58,6 @@ impl CncCtrl {
                 }
             },
         }
-        // if let Some(ref rx) = self.o_rx {
-        //     match rx.try_recv() {
-        //         Ok( res ) => {
-        //             match res {
-        //                 ECncStatusMessage::eCurrentPosition( current ) => {
-        //                     // println!("Received coordinates: {:?}", current.clone());
-        //                     // self.current_coords = current;
-        //                     self.set_current_coords(current.x, current.y, current.z);
-        //                 },
-        //                 ECncStatusMessage::eDisconnected => {
-
-        //                 },
-        //                 ECncStatusMessage::eStatus => {
-
-        //                 },
-        //             }
-        //         },
-        //         Err(e) => {
-                    // if e==mpsc::TryRecvError::Disconnected {
-                    //     println!("Failed to receive: {:?}", e);
-                    // }
-        //         },
-        //     }
-        // }
     }
 
     pub fn set_current_coords(&mut self, x: f32, y: f32, z: f32) {
@@ -102,30 +77,27 @@ impl CncCtrl {
                 println!("Failed to send a message: {:?}", e);
             }
         }
-
-        // if let Some(ref tx) = self.o_tx {
-        //     match tx.send( ECncCtrlMessage::eTargetPosition(self.target_coords.clone()) ) {
-        //         Ok( () ) => {
-        //             println!("Message sent");
-        //         }, 
-        //         Err(e) => {
-        //             println!("Failed to send a message: {:?}", e);
-        //         }
-        //     }
-        // } else {
-        //     println!("Cant send target position: Connection not set up!");
-        // }
+    }
+    
+    pub fn set_pid_params(&mut self, x_axis: &PIDParams, y_axis: &PIDParams, z_axis: &PIDParams) {
+        match self.connection.send(ECncCtrlMessage::EPIDParams([x_axis.clone(), y_axis.clone(), z_axis.clone()])) {
+            Ok(()) => {
+                println!("Message sent with PID params");
+            },
+            Err(e) => {
+                println!("Failed to send a message with PID params: {:?}", e);
+            }
+        }
+    }
+    
+    pub fn update_pid_params(&mut self, pid_params: [PIDParams; 3]) {
+        self.pid_params = pid_params;
     }
 
     pub fn get_target_coords(&self) -> CncCoordinates {
         self.target_coords.clone()
     }
-
-    pub fn set_channels(&mut self, tx: mpsc::Sender<ECncCtrlMessage>, rx: mpsc::Receiver<ECncStatusMessage>) {
-        // self.o_tx = Some(tx);
-        // self.o_rx = Some(rx);
-        self.e_cnc_ctrl_state = ECncCtrlState::EConnected;
-    }
+    
     pub fn set_connection(&mut self, connection: CncConnection<ECncCtrlMessage, ECncStatusMessage>) {
         self.connection = connection;
         self.e_cnc_ctrl_state = ECncCtrlState::EConnected;

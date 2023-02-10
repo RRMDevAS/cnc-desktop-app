@@ -142,18 +142,6 @@ impl CncCoordsDisplay {
         for indicator in &self.indicators {
             (*indicator).draw(d, font);
         }
-        // let position = Vector2::new( self.background.x + font_size + 0.0f32 * (self.background.width - 2f32 * font_size) * 0.33f32,
-        //     self.background.y + self.background.height * 0.75f32 - font_size * 0.5f32);
-        // d.draw_text_ex(&font,format!("X:{:3.3}", self.coords.x).as_str(), 
-        // position, font_size, 0f32, Color::RED);
-        // let position = Vector2::new( self.background.x + font_size + 1.0f32 * (self.background.width - 2f32 * font_size) * 0.33f32,
-        //     self.background.y + self.background.height * 0.75f32 - font_size * 0.5f32);
-        // d.draw_text_ex(&font,format!("Y:{:3.3}", self.coords.y).as_str(), 
-        // position, font_size, 0f32, Color::DARKGREEN);
-        // let position = Vector2::new( self.background.x + font_size + 2.0f32 * (self.background.width - 2f32 * font_size) * 0.33f32,
-        //     self.background.y + self.background.height * 0.75f32 - font_size * 0.5f32);
-        // d.draw_text_ex(&font,format!("Z:{:3.3}", self.coords.z).as_str(), 
-        // position, font_size, 0f32, Color::DARKBLUE);
     }
 }
 
@@ -179,10 +167,7 @@ impl CncZCoordIndicator {
         let start = self.pos - Vector2::new( 0f32, 0.15f32 * self.size);
         let end = self.pos + Vector2::new(0f32, 0.15f32 * self.size);
         d.draw_line_v(start, end, self.color);
-
-        // let size = Vector2::new( 0.4f32 * self.size, 0.4f32 * self.size);
-        // let start = self.pos - size * 0.5f32;
-        // d.draw_rectangle_lines(start.x as i32, start.y as i32, size.x as i32, size.y as i32, self.color);
+        
         d.draw_circle_lines(self.pos.x as i32, self.pos.y as i32, self.size * 0.5f32, self.color);
     }
 }
@@ -334,10 +319,6 @@ impl CncCtrlUi {
             display_mut.set_size(coords_display_w, rect_h);
             display_mut
         };
-        // self.cnc_target_display.set_pos( Vector2::new(870f32, 100f32 + 800f32 * 0.233f32) );
-        // self.cnc_target_display.set_size(coords_display_w, 800f32 * 0.2f32);
-        // self.target_display.set_pos( Vector2::new(870f32, 100f32 + 800f32 * 0.233f32 * 2.0f32) );
-        // self.target_display.set_size(coords_display_w, 800f32 * 0.2f32);
 
         CncCtrlUi{
             target_coords           : CncCoordinates::new(),
@@ -387,11 +368,7 @@ impl CncCtrlUi {
         self.set_current_coords(cnc.current_coords.x, cnc.current_coords.y, cnc.current_coords.z);
 
         self.cnc_target_coords = cnc.get_target_coords();
-
-
-        // self.current_pos_display.coords = self.current_coords.clone();
-        // self.cnc_target_display.coords = self.cnc_target_coords.clone();
-        // self.target_display.coords = self.target_coords.clone();
+        
         self.current_pos_display.set_coords(self.current_coords.clone());
         self.cnc_target_display.set_coords(self.cnc_target_coords.clone());
         self.target_display.set_coords(self.target_coords.clone());
@@ -416,8 +393,4 @@ impl CncCtrlUi {
         self.current_coords.y = y;
         self.current_coords.z = z;
     }
-
-    // pub fn on_send_clicked<F: FnMut() + 'a>(&mut self, send_callback: F) {
-    //     self.o_fn_send = Some( Box::new(send_callback) );
-    // }
 }

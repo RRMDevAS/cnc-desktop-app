@@ -61,16 +61,16 @@ impl GuiIpAddress {
             let mut ip_1 = ValueEdit::new(base_x + (ip_rect_width + margin) * 1f32, base_y, ip_rect_width, ip_rect_height);
             let mut ip_2 = ValueEdit::new(base_x + (ip_rect_width + margin) * 2f32, base_y, ip_rect_width, ip_rect_height);
             let mut ip_3 = ValueEdit::new(base_x + (ip_rect_width + margin) * 3f32, base_y, ip_rect_width, ip_rect_height);
-            ip_0.value = 127;
+            ip_0.value = 192;
             ip_0.min_value = 0;
             ip_0.max_value = 255;
-            ip_1.value = 0;
+            ip_1.value = 168;
             ip_1.min_value = 0;
             ip_1.max_value = 255;
-            ip_2.value = 0;
+            ip_2.value = 2;
             ip_2.min_value = 0;
             ip_2.max_value = 255;
-            ip_3.value = 1;
+            ip_3.value = 232;
             ip_3.min_value = 0;
             ip_3.max_value = 255;
             [ip_0, ip_1, ip_2, ip_3]

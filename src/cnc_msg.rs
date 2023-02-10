@@ -20,16 +20,35 @@ impl CncCoordinates {
     }
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct PIDParams{
+    pub prop: f32,
+    pub inte: f32,
+    pub deri: f32,
+}
+
+impl PIDParams {
+    pub fn new() -> PIDParams {
+        PIDParams{
+            prop: 0.0f32,
+            inte: 0f32,
+            deri: 0f32,
+        }
+    }
+}
+
 pub enum ECncCtrlMessage {
     ETargetPosition(CncCoordinates),
+    EPIDParams([PIDParams; 3]),
     EQuit,
 }
 
 impl ECncCtrlMessage {
     pub fn get_type_id(&self) -> u8 {
         match self {
-            ECncCtrlMessage::ETargetPosition(coords) => 0,
-            ECncCtrlMessage::EQuit => 1,
+            ECncCtrlMessage::ETargetPosition(_) => 1,
+            ECncCtrlMessage::EPIDParams(_) => 2,
+            ECncCtrlMessage::EQuit => 3,
         }
     }
 
@@ -38,6 +57,18 @@ impl ECncCtrlMessage {
         match self {
             ECncCtrlMessage::ETargetPosition(coords) => {
                 match bincode::serialize(&coords) {
+                    Ok(mut vec) => {
+                        let mut temp_vec = Vec::from( [u_type_id; 1] );
+                        temp_vec.append(&mut vec);
+                        Ok(temp_vec)
+                    },
+                    Err(e) => {
+                        Err(e)
+                    },
+                }
+            },
+            ECncCtrlMessage::EPIDParams(params) => {
+                match bincode::serialize(&params) {
                     Ok(mut vec) => {
                         let mut temp_vec = Vec::from( [u_type_id; 1] );
                         temp_vec.append(&mut vec);
@@ -58,32 +89,35 @@ impl ECncCtrlMessage {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct CncAxisStatus{
     pub position: f32,
-    pub target_position: f32,
     pub speed: f32,
+    pub target_position: f32,
     pub target_speed: f32,
     pub pid_prop_control: f32,
     pub pid_int_control: f32,
     pub pid_der_control: f32,
+    pub duty: i32
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct  CncStatus{
-    pub cycle_time: f32,
+    pub cycle_time: i32,
     pub axis_status: [CncAxisStatus; 3],
 }
 
 pub enum ECncStatusMessage {
     ECurrentPosition(CncCoordinates),
     EStatus(CncStatus),
+    EPIDParams([PIDParams;3]),
     EDisconnected,
 }
 
 impl ECncStatusMessage {
     pub fn get_type_id(&self) -> u8 {
         match self {
-            ECncStatusMessage::ECurrentPosition(coords) => 0,
-            ECncStatusMessage::EStatus(status) => 1,
-            ECncStatusMessage::EDisconnected => 2,
+            ECncStatusMessage::ECurrentPosition(_) => 0,
+            ECncStatusMessage::EStatus(_) => 1,
+            ECncStatusMessage::EPIDParams(_) => 2,
+            ECncStatusMessage::EDisconnected => 3,
         }
     }
 }
